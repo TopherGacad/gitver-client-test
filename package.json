@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postversion": "git push && git push --tags"
   },
   "dependencies": {
     "react": "^19.0.0",
