@@ -1,20 +1,14 @@
-name: Create GitHub Release on Major Version Tag
-
 on:
   push:
     tags:
-      - 'v[0-9]*' # Only triggers on v1, v2, v3, etc. (no dot = major only)
+      - 'v[0-9]+.0.0'  # Matches only v1.0.0, v2.0.0
 
 jobs:
   release:
-    name: GitHub Release
     runs-on: ubuntu-latest
 
-    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '.')
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
