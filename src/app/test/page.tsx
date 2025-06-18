@@ -3,7 +3,7 @@ import React from 'react'
 const TestPage = () => {
   return (
     <div>
-      test page add major test
+      test page add major test trial final minor
     </div>
   )
 }
