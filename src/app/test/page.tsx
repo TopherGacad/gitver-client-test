@@ -3,7 +3,7 @@ import React from 'react'
 const TestPage = () => {
   return (
     <div>
-      test page add prerelease
+      test page add major release
     </div>
   )
 }
