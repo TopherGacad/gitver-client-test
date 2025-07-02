@@ -1,15 +1,13 @@
 name: Auto Version Bump
 
 on:
-  push:
-    branches: [ dev, main ]
   pull_request:
     branches: [ dev, main ]
     types: [ closed ]
 
 jobs:
   version-bump:
-    if: github.event.pull_request.merged == true || github.event_name == 'push'
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     
     steps:
@@ -35,64 +33,68 @@ jobs:
     - name: Determine version bump type
       id: bump-type
       run: |
-        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+        if [[ "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
           echo "type=minor" >> $GITHUB_OUTPUT
-        elif [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
-          echo "type=patch" >> $GITHUB_OUTPUT
+          echo "branch=main" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.event.pull_request.base.ref }}" == "dev" ]]; then
+          echo "type=patch" >> $GITHUB_OUTPUT  
+          echo "branch=dev" >> $GITHUB_OUTPUT
         else
           echo "type=patch" >> $GITHUB_OUTPUT
+          echo "branch=other" >> $GITHUB_OUTPUT
         fi
 
     - name: Bump version
       id: version-bump
       run: |
         # Get current version
-        CURRENT_VERSION=$(npm version --json | jq -r '.["your-app-name"]' 2>/dev/null || echo "1.0.0")
+        CURRENT_VERSION=$(node -p "require('./package.json').version")
+        echo "Previous version: $CURRENT_VERSION"
         
         # Bump version based on branch
         if [[ "${{ steps.bump-type.outputs.type }}" == "minor" ]]; then
-          NEW_VERSION=$(npm version minor --no-git-tag-version)
+          npm version minor --no-git-tag-version
         else
-          NEW_VERSION=$(npm version patch --no-git-tag-version)
+          npm version patch --no-git-tag-version
         fi
         
+        # Get new version after bump
+        NEW_VERSION=$(node -p "require('./package.json').version")
         echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
-        echo "Previous version: $CURRENT_VERSION"
         echo "New version: $NEW_VERSION"
 
     - name: Update version in files
       run: |
-        # Update package.json (already done by npm version)
-        # Update other files that might contain version
-        sed -i "s/\"version\": \".*\"/\"version\": \"${{ steps.version-bump.outputs.new-version }}\"/g" package.json
-        
-        # If you have other files with version numbers, update them here
-        # Example: sed -i "s/VERSION = .*/VERSION = '${{ steps.version-bump.outputs.new-version }}'/g" src/config.js
+        # Version is already updated in package.json by npm version command
+        # Add any other files that need version updates here
+        echo "Version updated to $(node -p 'require(\"./package.json\").version')"
 
     - name: Commit version bump
       run: |
-        git add .
-        git commit -m "chore: bump version to ${{ steps.version-bump.outputs.new-version }} [skip ci]"
+        NEW_VERSION=$(node -p "require('./package.json').version")
+        git add package.json
+        git commit -m "chore: bump version to v$NEW_VERSION [skip ci]"
         
     - name: Create Git tag
-      if: github.ref == 'refs/heads/main'
+      if: steps.bump-type.outputs.branch == 'main'
       run: |
-        git tag -a ${{ steps.version-bump.outputs.new-version }} -m "Release ${{ steps.version-bump.outputs.new-version }}"
+        NEW_VERSION=$(node -p "require('./package.json').version")
+        git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
         
     - name: Push changes
       run: |
-        git push origin ${{ github.ref_name }}
-        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+        git push origin ${{ github.event.pull_request.base.ref }}
+        if [[ "${{ steps.bump-type.outputs.branch }}" == "main" ]]; then
           git push origin --tags
         fi
 
     - name: Create GitHub Release
-      if: github.ref == 'refs/heads/main'
+      if: steps.bump-type.outputs.branch == 'main'
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ steps.version-bump.outputs.new-version }}
-        release_name: Release ${{ steps.version-bump.outputs.new-version }}
+        tag_name: v${{ steps.version-bump.outputs.new-version }}
+        release_name: Release v${{ steps.version-bump.outputs.new-version }}
         draft: false
         prerelease: false
